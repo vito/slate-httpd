@@ -4,9 +4,20 @@ Http define: #Server &parents: {Cloneable}.
 Http define: #Request &parents: {Cloneable} &slots: {#protocol. #method. #uri. #headers. #stream}.
 Http define: #Response &parents: {Cloneable} &slots: {#protocol. #status. #headers. #body}.
 Http define: #RequestParser &parents: {Parsing BasicParser}.
-Http define: #HeaderParser &parents: {Parsing BasicParser}.
 
-p@(Http HeaderParser traits) readHeaders
+p@(Http RequestParser traits) readRequest
+[ | chunks |
+  chunks: (p source next splitWith: $ ).
+
+  Http Request new `>> [
+    protocol: (chunks at: 2).
+    method: (chunks at: 0).
+    uri: (chunks at: 1).
+    headers: p readHeaders.
+  ]
+].
+
+p@(Http RequestParser traits) readHeaders
 [ | headers line lineReader |
   headers: Dictionary new.
 
@@ -21,17 +32,6 @@ p@(Http HeaderParser traits) readHeaders
   headers
 ].
 
-p@(Http RequestParser traits) readRequest
-[ | chunks |
-  chunks: (p source next splitWith: $ ).
-
-  Http Request new `>> [
-    protocol: (chunks at: 2).
-    method: (chunks at: 0).
-    uri: (chunks at: 1).
-    headers: (Http HeaderParser newOn: p source) readHeaders.
-  ]
-].
 
 rq@(Http Request traits) respondWith: rs@(Http Response traits)
 [ | reply |
