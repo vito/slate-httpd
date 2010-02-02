@@ -1,0 +1,68 @@
+lobby ensureNamespace: #Http.
+
+Http define: #Server &parents: {Cloneable}.
+Http define: #Request &parents: {Cloneable} &slots: {#method. #uri. #protocol. #headers. #stream}.
+Http define: #RequestParser &parents: {Parsing BasicParser}.
+Http define: #HeaderParser &parents: {Parsing BasicParser}.
+
+p@(Http HeaderParser traits) readHeaders
+[ | headers line lineReader |
+  headers: Dictionary new.
+
+  lineReader: p source reader.
+  [line: lineReader next. line isEmpty]
+    whileFalse: [ | reader name |
+                  reader: line reader.
+                  name: (reader upTo: $:).
+                  reader next.
+                  headers at: name put: reader upToEnd ].
+
+  headers
+].
+
+p@(Http RequestParser traits) readRequest
+[ | line chunks |
+  line: p source next.
+  chunks: (line splitWith: $ ).
+
+  Http Request new `>> [
+    method: (chunks at: 0).
+    uri: (chunks at: 1).
+    protocol: (chunks at: 2).
+    headers: (Http HeaderParser newOn: p source) readHeaders.
+  ]
+].
+
+r@(Http Request traits) respond: status
+[ r respond: status body: '' ].
+
+r@(Http Request traits) respond: status body: body
+[ | reply |
+  reply: (body as: ByteArray).
+  r stream nextPutAll: (('HTTP/1.1 ' ; (status as: String) ; '\r\nServer: Slate/0.0\r\nContent-Type: text/html; charset=UTF-8\r\n'
+                           ; 'Content-Length: '; reply length printString
+                           ; '\r\nConnection: keep-alive\r\nKeep-Alive: timeout=10\r\n\r\n') as: ByteArray) ; reply.
+
+].
+
+
+
+server@(Http Server traits) start
+[ (Net SocketServer newOn: {127. 0. 0. 1} port: 8080 dispatch: [
+    | :parent :peer stream request |
+
+    stream: (Net SocketStream newOn: peer).
+    r@(stream reader) next [resend as: $c]. "hack fixme"
+
+    request: (Http RequestParser newOn: stream reader lines) readRequest.
+    request stream: stream.
+
+    lobby inform: 'Request: ' ; request printString.
+
+    request respond: Http StatusResponse NotFound body: '<h1>404 Not Found</h1>'.
+
+    stream flush.
+  ]) start
+].
+
+Http Server start.
