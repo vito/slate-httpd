@@ -1,7 +1,8 @@
 lobby ensureNamespace: #Http.
 
 Http define: #Server &parents: {Cloneable}.
-Http define: #Request &parents: {Cloneable} &slots: {#method. #uri. #protocol. #headers. #stream}.
+Http define: #Request &parents: {Cloneable} &slots: {#protocol. #method. #uri. #headers. #stream}.
+Http define: #Response &parents: {Cloneable} &slots: {#protocol. #status. #headers. #body}.
 Http define: #RequestParser &parents: {Parsing BasicParser}.
 Http define: #HeaderParser &parents: {Parsing BasicParser}.
 
@@ -21,30 +22,39 @@ p@(Http HeaderParser traits) readHeaders
 ].
 
 p@(Http RequestParser traits) readRequest
-[ | line chunks |
-  line: p source next.
-  chunks: (line splitWith: $ ).
+[ | chunks |
+  chunks: (p source next splitWith: $ ).
 
   Http Request new `>> [
+    protocol: (chunks at: 2).
     method: (chunks at: 0).
     uri: (chunks at: 1).
-    protocol: (chunks at: 2).
     headers: (Http HeaderParser newOn: p source) readHeaders.
   ]
 ].
 
-r@(Http Request traits) respond: status
-[ r respond: status body: '' ].
-
-r@(Http Request traits) respond: status body: body
+rq@(Http Request traits) respondWith: rs@(Http Response traits)
 [ | reply |
-  reply: (body as: ByteArray).
-  r stream nextPutAll: (('HTTP/1.1 ' ; (status as: String) ; '\r\nServer: Slate/0.0\r\nContent-Type: text/html; charset=UTF-8\r\n'
-                           ; 'Content-Length: '; reply length printString
-                           ; '\r\nConnection: keep-alive\r\nKeep-Alive: timeout=10\r\n\r\n') as: ByteArray) ; reply.
+  reply: '' writer.
+  reply ; (rs protocol) ; ' ' ; (rs status as: String) ; '\r\n'.
 
+  rs headers do: [ | :header | reply ; header key ; ': ' ; header value ; '\r\n'. ].
+
+  reply ; 'Content-Length: ' ; (rs body length as: String) ; '\r\n'.
+  reply ; '\r\n'.
+  reply ; rs body.
+
+  rq stream nextPutAll: (reply contents as: ByteArray).
 ].
 
+
+"An example handler. Override me."
+r@(Http Request traits) handle
+[ r respondWith: (Http Response new `>> [ protocol: 'HTTP/1.1'.
+                                          status: Http StatusResponse OK.
+                                          headers: Dictionary new.
+                                          body: '<h1>OK!</h1>'. ]).
+].
 
 
 server@(Http Server traits) start
@@ -59,7 +69,7 @@ server@(Http Server traits) start
 
     lobby inform: 'Request: ' ; request printString.
 
-    request respond: Http StatusResponse NotFound body: '<h1>404 Not Found</h1>'.
+    request handle.
 
     stream flush.
   ]) start
