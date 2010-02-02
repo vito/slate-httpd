@@ -1,0 +1,11 @@
+load: 'web.slate'.
+
+define: #Hello &parents: {Web Controller}.
+
+h@(Hello traits) index
+[ 'Hello, world!' ].
+
+h@(Hello traits) hello: name
+[ 'Hello, ' ; name ; '!' ].
+
+Web Server run: Hello &port: 8080.

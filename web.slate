@@ -1,0 +1,38 @@
+load: 'server.slate'.
+
+lobby ensureNamespace: #Web.
+
+
+Web define: #Server &parents: {Http Server} &slots: {#controller}.
+Web define: #Controller &parents: {Cloneable}.
+
+
+_@(Web Controller traits) didNotUnderstand: message at: position
+[ ['Unknown request.'] ].
+
+s@(Web Server traits) handle: r@(Http Request traits)
+[ | segments method targets |
+
+  segments: (r uri splitWith: $/).
+  (segments length isZero)
+    ifTrue: [ method: 'index'.
+              targets: {s controller}. ]
+    ifFalse: [ (segments length = 1)
+                 ifTrue: [ method: segments first.
+                           targets: {s controller}. ]
+                 ifFalse: [ method: (segments first) ; ':'. "TODO: Make this work for more than one url segment."
+                            targets: {s controller. segments second}. ] ].
+
+  r respondWith: (Http Response new `>> [ protocol: 'HTTP/1.1'.
+                                          status: Http StatusResponse OK.
+                                          headers: Dictionary new.
+                                          body: ((method intern) sendTo: targets). ]).
+].
+
+s@(Web Server traits) run: c@(Web Controller traits) &port: port
+[ port `defaultsTo: 8080.
+
+  s controller: c.
+
+  s start &port: port
+].
