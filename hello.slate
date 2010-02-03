@@ -8,4 +8,7 @@ h@(Hello traits) index
 h@(Hello traits) hello: name
 [ 'Hello, ' ; name ; '!' ].
 
+h@(Hello traits) hello &name: name
+[ 'Hello, ' ; name printString ; '!' ].
+
 Web Server run: Hello &port: 8080.
